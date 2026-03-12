@@ -1,5 +1,4 @@
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 
 class Reservation {
     private String guestName;
@@ -15,48 +14,76 @@ class Reservation {
 
     @Override
     public String toString() {
-        return "Reservation [Guest: " + guestName + ", Room Type: " + roomType + "]";
+        return "Guest: " + guestName + " | Room Type: " + roomType;
     }
 }
 
-class BookingRequestQueue {
-    private Queue<Reservation> requestQueue = new LinkedList<>();
+class InventoryService {
+    private Map<String, Integer> inventory = new HashMap<>();
+    private Set<String> allocatedRoomIds = new HashSet<>();
 
-    public void addRequest(Reservation reservation) {
-        requestQueue.add(reservation);
-        System.out.println("Enqueued: " + reservation);
+    public void addInventory(String type, int count) {
+        inventory.put(type, count);
     }
 
-    public void showQueue() {
-        System.out.println("\n--- Current Booking Request Queue (FIFO) ---");
-        if (requestQueue.isEmpty()) {
-            System.out.println("Queue is empty.");
-        } else {
-            for (Reservation res : requestQueue) {
-                System.out.println(res);
+    public boolean isAvailable(String type) {
+        return inventory.getOrDefault(type, 0) > 0;
+    }
+
+    public String allocateRoom(String type) {
+        int roomNumber = 100 + allocatedRoomIds.size() + 1;
+        String roomId = type.substring(0, 1).toUpperCase() + roomNumber;
+
+        allocatedRoomIds.add(roomId);
+        inventory.put(type, inventory.get(type) - 1);
+        return roomId;
+    }
+
+    public int getCount(String type) {
+        return inventory.getOrDefault(type, 0);
+    }
+}
+
+class BookingService {
+    private Queue<Reservation> requestQueue = new LinkedList<>();
+    private InventoryService inventoryService;
+
+    public BookingService(InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
+    }
+
+    public void addRequest(Reservation res) {
+        requestQueue.add(res);
+    }
+
+    public void processAllocations() {
+        System.out.println("--- Processing Room Allocations ---");
+        while (!requestQueue.isEmpty()) {
+            Reservation res = requestQueue.poll();
+            if (inventoryService.isAvailable(res.getRoomType())) {
+                String roomId = inventoryService.allocateRoom(res.getRoomType());
+                System.out.println("CONFIRMED: " + res.getGuestName() + " assigned Room " + roomId);
+            } else {
+                System.out.println("FAILED: No availability for " + res.getGuestName() + " (" + res.getRoomType() + ")");
             }
         }
     }
-
-    public Reservation processNextRequest() {
-        return requestQueue.poll();
-    }
 }
 
-public class BookMyStayApp{
+public class BookMyStayApp {
     public static void main(String[] args) {
-        BookingRequestQueue bookingQueue = new BookingRequestQueue();
+        InventoryService inventory = new InventoryService();
+        inventory.addInventory("Single", 2);
+        inventory.addInventory("Double", 1);
 
-        bookingQueue.addRequest(new Reservation("Alice", "Single"));
-        bookingQueue.addRequest(new Reservation("Bob", "Double"));
-        bookingQueue.addRequest(new Reservation("Charlie", "Single"));
+        BookingService bookingService = new BookingService(inventory);
+        bookingService.addRequest(new Reservation("Alice", "Single"));
+        bookingService.addRequest(new Reservation("Bob", "Double"));
+        bookingService.addRequest(new Reservation("Charlie", "Single"));
+        bookingService.addRequest(new Reservation("David", "Single")); // Should fail
 
-        bookingQueue.showQueue();
+        bookingService.processAllocations();
 
-        System.out.println("\nProcessing first request...");
-        Reservation next = bookingQueue.processNextRequest();
-        System.out.println("Processing: " + next);
-
-        bookingQueue.showQueue();
+        System.out.println("\nFinal Inventory for Single: " + inventory.getCount("Single"));
     }
 }
