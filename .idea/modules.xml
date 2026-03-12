@@ -2,7 +2,11 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+<<<<<<< HEAD
       <module fileurl="file://$PROJECT_DIR$/B2P11_RA2411026011262.iml" filepath="$PROJECT_DIR$/B2P11_RA2411026011262.iml" />
+=======
+      <module fileurl="file://$PROJECT_DIR$/BookMyStayApp.iml" filepath="$PROJECT_DIR$/BookMyStayApp.iml" />
+>>>>>>> 6b5ba66 (Base application setup)
     </modules>
   </component>
 </project>
