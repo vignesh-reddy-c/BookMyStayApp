@@ -63,6 +63,23 @@ class BookingService {
         System.out.println("Booking confirmed: " + bookingId + " Room: " + roomId);
     }
 
+    public void cancelBooking(String bookingId) {
+        Booking booking = bookings.get(bookingId);
+        if (booking == null) {
+            System.out.println("Invalid booking ID");
+            return;
+        }
+        synchronized (booking) {
+            if (booking.isCancelled) {
+                System.out.println("Booking already cancelled");
+                return;
+            }
+            inventory.releaseRoom(booking.roomType, booking.roomId);
+            booking.isCancelled = true;
+            System.out.println("Booking cancelled: " + bookingId);
+        }
+    }
+
     public void showInventory(String type) {
         System.out.println("Available " + type + " rooms: " + inventory.getAvailableCount(type));
     }
@@ -73,22 +90,16 @@ public class BookMyStayApp {
         HotelInventory inventory = new HotelInventory();
         inventory.addRoom("Deluxe", "D1");
         inventory.addRoom("Deluxe", "D2");
-
         BookingService service = new BookingService(inventory);
-
         ExecutorService executor = Executors.newFixedThreadPool(5);
-
         Runnable task1 = () -> service.createBooking("B1", "Deluxe");
         Runnable task2 = () -> service.createBooking("B2", "Deluxe");
         Runnable task3 = () -> service.createBooking("B3", "Deluxe");
-
         executor.execute(task1);
         executor.execute(task2);
         executor.execute(task3);
-
         executor.shutdown();
         executor.awaitTermination(5, TimeUnit.SECONDS);
-
         service.showInventory("Deluxe");
     }
 }
