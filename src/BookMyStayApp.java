@@ -44,7 +44,6 @@ class HotelInventory {
 class BookingService {
     Map<String, Booking> bookings = new HashMap<>();
     HotelInventory inventory;
-    Stack<String> rollbackStack = new Stack<>();
 
     BookingService(HotelInventory inventory) {
         this.inventory = inventory;
@@ -71,7 +70,6 @@ class BookingService {
             System.out.println("Booking already cancelled");
             return;
         }
-        rollbackStack.push(booking.roomId);
         inventory.releaseRoom(booking.roomType, booking.roomId);
         booking.isCancelled = true;
         System.out.println("Booking cancelled: " + bookingId);
@@ -82,10 +80,9 @@ class BookingService {
     }
 }
 
-public class BookMyStayApp{
+public class BookMyStayApp {
     public static void main(String[] args) {
         HotelInventory inventory = new HotelInventory();
-
         inventory.addRoom("Deluxe", "D1");
         inventory.addRoom("Deluxe", "D2");
         inventory.addRoom("Standard", "S1");
@@ -94,11 +91,9 @@ public class BookMyStayApp{
 
         service.createBooking("B1", "Deluxe");
         service.createBooking("B2", "Deluxe");
-
         service.showInventory("Deluxe");
 
         service.cancelBooking("B1");
-
         service.showInventory("Deluxe");
 
         service.cancelBooking("B1");
