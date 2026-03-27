@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.concurrent.*;
 
 class Booking {
     String bookingId;
@@ -15,83 +16,79 @@ class Booking {
 }
 
 class HotelInventory {
-    Map<String, Integer> inventory = new HashMap<>();
-    Map<String, Stack<String>> availableRooms = new HashMap<>();
+    private final Map<String, Integer> inventory = new ConcurrentHashMap<>();
+    private final Map<String, Stack<String>> availableRooms = new ConcurrentHashMap<>();
 
-    void addRoom(String type, String roomId) {
+    public synchronized void addRoom(String type, String roomId) {
         inventory.put(type, inventory.getOrDefault(type, 0) + 1);
         availableRooms.putIfAbsent(type, new Stack<>());
         availableRooms.get(type).push(roomId);
     }
 
-    String allocateRoom(String type) {
-        if (!availableRooms.containsKey(type) || availableRooms.get(type).isEmpty()) return null;
+    public synchronized String allocateRoom(String type) {
+        if (!availableRooms.containsKey(type) || availableRooms.get(type).isEmpty()) {
+            return null;
+        }
         inventory.put(type, inventory.get(type) - 1);
         return availableRooms.get(type).pop();
     }
 
-    void releaseRoom(String type, String roomId) {
+    public synchronized void releaseRoom(String type, String roomId) {
         inventory.put(type, inventory.getOrDefault(type, 0) + 1);
         availableRooms.putIfAbsent(type, new Stack<>());
         availableRooms.get(type).push(roomId);
     }
 
-    int getAvailableCount(String type) {
+    public synchronized int getAvailableCount(String type) {
         return inventory.getOrDefault(type, 0);
     }
 }
 
 class BookingService {
-    Map<String, Booking> bookings = new HashMap<>();
-    HotelInventory inventory;
-    Stack<String> rollbackStack = new Stack<>();
+    private final Map<String, Booking> bookings = new ConcurrentHashMap<>();
+    private final HotelInventory inventory;
 
     BookingService(HotelInventory inventory) {
         this.inventory = inventory;
     }
 
-    void createBooking(String bookingId, String roomType) {
+    public void createBooking(String bookingId, String roomType) {
         String roomId = inventory.allocateRoom(roomType);
         if (roomId == null) {
-            System.out.println("No rooms available for type: " + roomType);
+            System.out.println("No rooms available for type: " + roomType + " (Booking: " + bookingId + ")");
             return;
         }
         Booking booking = new Booking(bookingId, roomType, roomId);
         bookings.put(bookingId, booking);
         System.out.println("Booking confirmed: " + bookingId + " Room: " + roomId);
     }
-    void cancelBooking(String bookingId) {
-        if (!bookings.containsKey(bookingId)) {
-            System.out.println("Invalid booking ID");
-            return;
-        }
-        Booking booking = bookings.get(bookingId);
-        if (booking.isCancelled) {
-            System.out.println("Booking already cancelled");
-            return;
-        }
-        rollbackStack.push(booking.roomId);
-        inventory.releaseRoom(booking.roomType, booking.roomId);
-        booking.isCancelled = true;
-        System.out.println("Booking cancelled: " + bookingId);
-    }
-    void showInventory(String type) {
+
+    public void showInventory(String type) {
         System.out.println("Available " + type + " rooms: " + inventory.getAvailableCount(type));
     }
 }
-public class BookMyStayApp{
-    public static void main(String[] args) {
+
+public class BookMyStayApp {
+    public static void main(String[] args) throws InterruptedException {
         HotelInventory inventory = new HotelInventory();
         inventory.addRoom("Deluxe", "D1");
         inventory.addRoom("Deluxe", "D2");
-        inventory.addRoom("Standard", "S1");
+
         BookingService service = new BookingService(inventory);
-        service.createBooking("B1", "Deluxe");
-        service.createBooking("B2", "Deluxe");
+
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+
+        Runnable task1 = () -> service.createBooking("B1", "Deluxe");
+        Runnable task2 = () -> service.createBooking("B2", "Deluxe");
+        Runnable task3 = () -> service.createBooking("B3", "Deluxe");
+
+        executor.execute(task1);
+        executor.execute(task2);
+        executor.execute(task3);
+
+        executor.shutdown();
+        executor.awaitTermination(5, TimeUnit.SECONDS);
+
         service.showInventory("Deluxe");
-        service.cancelBooking("B1");
-        service.showInventory("Deluxe");
-        service.cancelBooking("B1");
-        service.cancelBooking("B3");
     }
 }
